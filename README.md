@@ -1,62 +1,83 @@
-# DocuMind — Intelligent Document Research Assistant
+# DocuMind — Intelligent Document Research and Comparison Platform
 
-DocuMind is an NLP-powered document research assistant designed to extract, index, retrieve, and summarize insights from large document collections.
+DocuMind is an enterprise-grade document intelligence and retrieval-augmented generation (RAG) platform. It provides high-precision semantic search, grounded question answering with verified source citations, structured executive summarization, and side-by-side comparative analysis of research documents and technical specifications.
 
-This repository currently implements **Phase 4: RAG-based Question Answering using OpenAI**, featuring a decoupled React (Vite) frontend and FastAPI backend.
-
----
-
-## 🛠 Tech Stack
-
-- **Frontend**: React 18, Vite, JavaScript, Vanilla CSS (Modern dark glassmorphic design)
-- **Backend**: Python 3.10+, FastAPI, Uvicorn, Pydantic, PyMuPDF (`fitz`), Python-Multipart
-- **NLP & Search**:
-  - **Text Chunking**: Sliding-window overlapping chunker with full page provenance
-  - **Embeddings**: Sentence Transformers (`all-MiniLM-L6-v2`, 384 dimensions, L2-normalized)
-  - **Vector Store**: FAISS (`IndexFlatIP` inner-product search for exact cosine similarity)
-  - **Session Registry**: In-memory document and index session store (isolated by `document_id`)
-- **RAG & Generative AI**:
-  - **Provider**: Official OpenAI Python SDK (`openai>=1.0.0`)
-  - **Interface**: OpenAI Responses API (`client.responses.create`)
-  - **Model**: Configurable (Default: `gpt-4o-mini`)
-  - **Guardrails**: Prompt-injection isolation (untrusted excerpt handling) and backend-enforced source citation mapping
-- **Test Suite**: Python `unittest` / `pytest`, `httpx` (35 automated tests, zero external API costs)
+Built on a decoupled architecture featuring a React (Vite) frontend workspace and a high-performance FastAPI backend, DocuMind operates in both offline deterministic Mock Mode (using FAISS vector search with zero third-party API dependencies) and production OpenAI Mode.
 
 ---
 
-## 📂 Project Structure
+## Key Capabilities
+
+- **Multi-Page Research Workspace**: State-driven navigation featuring dedicated screens for Dashboard, Document Library, Research AI, Compare Papers, and System Diagnostics with URL hash synchronization and mobile drawer support.
+- **Accurate In-Memory Document Ingestion**: Text extraction powered by PyMuPDF with page-level provenance, character budgeting, and scanned document detection.
+- **Dense Vector Search**: Sliding-window chunking with Sentence Transformers (`all-MiniLM-L6-v2`, 384 dimensions) and FAISS `IndexFlatIP` for exact inner-product cosine similarity search.
+- **Grounded Question Answering with Strict Citations**: Backend-enforced citation mapping that ties synthesized statements directly to source pages and retrieved chunk identifiers, eliminating hallucinated references.
+- **Structured Document Summarization**: Context-budgeted summarization extracting executive overview, objectives, key findings with page numbers, and conclusions.
+- **Deep Document & Research Paper Comparison**: Parameter-level evaluation comparing concrete capacities, deployment scopes, capital budgets, timelines, methodologies, maintenance schedules, and constraints across documents.
+- **Dual Engine Architecture**: Supports deterministic offline evaluation in Mock Mode with zero external API costs, as well as production OpenAI GPT integration with structured JSON validation.
+
+---
+
+## Technical Stack
+
+### Frontend
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Styling**: Vanilla CSS Design System with cohesive dark theme, accessible contrast, and visible keyboard focus states
+- **Architecture**: Single-page application shell with URL hash routing (`#dashboard`, `#documents`, `#research`, `#compare`, `#settings`), responsive sidebar, and persistent session state
+
+### Backend
+- **Framework**: FastAPI, Uvicorn
+- **Validation**: Pydantic v2
+- **PDF Extraction**: PyMuPDF (`pymupdf`)
+- **Embeddings**: Sentence Transformers (`all-MiniLM-L6-v2`, 384 dimensions)
+- **Vector Index**: FAISS (`IndexFlatIP`, L2-normalized)
+- **LLM Integration**: Official OpenAI Python SDK (`openai>=1.0.0`) with structured responses and fallback handling
+
+---
+
+## Project Structure
 
 ```
 documind/
 ├── .gitignore
 ├── README.md
 ├── backend/
-│   ├── .env.example                       # Environment variables template with placeholders
+│   ├── .env.example                       # Environment variables template
 │   ├── requirements.txt                   # FastAPI, PyMuPDF, Sentence Transformers, FAISS, OpenAI
 │   ├── tests/
 │   │   ├── __init__.py
-│   │   ├── test_document_upload.py        # Phase 2 PDF upload & extraction tests
-│   │   ├── test_phase3_semantic_search.py # Phase 3 chunking, registry & FAISS search tests
-│   │   └── test_phase4_rag.py             # Phase 4 RAG, citations, guardrails & provider tests
+│   │   ├── test_comparison_quality.py     # Comparison regression, completeness, and parameter tests
+│   │   ├── test_document_upload.py        # PDF upload, size limits, and extraction tests
+│   │   ├── test_mock_llm.py               # Deterministic Mock LLM evidence extraction tests
+│   │   ├── test_phase3_semantic_search.py # Chunking, embedding, and FAISS vector index tests
+│   │   ├── test_phase4_rag.py             # RAG orchestration, citation mapping, and guardrail tests
+│   │   ├── test_phase5_intelligence.py    # Summarization and comparison service tests
+│   │   ├── test_phase6_integration.py     # End-to-end integration and retrieval benchmarks
+│   │   ├── test_phase6_optimization.py    # Query embedding cache and resource lifecycle tests
+│   │   └── test_phase6_security_audit.py  # Path traversal, injection, and error hygiene tests
 │   └── app/
 │       ├── __init__.py
-│       ├── main.py                        # FastAPI app entry point with CORS, root & health
+│       ├── main.py                        # FastAPI application entry point, CORS, root, and health
 │       ├── core/
 │       │   ├── __init__.py
-│       │   └── config.py                  # Centralized configuration (OpenAI, CORS, timeouts)
+│       │   └── config.py                  # Centralized application settings
 │       ├── api/
 │       │   ├── __init__.py
-│       │   ├── documents.py               # Upload, /index, /search, and /ask endpoint router
-│       │   └── routes.py                  # Modular API routing layer (/api/v1)
+│       │   ├── documents.py               # Document endpoints: upload, index, search, ask, summarize, compare
+│       │   └── routes.py                  # API router mounting (/api/v1)
 │       └── services/
 │           ├── __init__.py
-│           ├── chunking_service.py        # Overlapping text chunking with metadata preservation
-│           ├── document_registry.py       # In-memory session registry (volatile per process)
-│           ├── embedding_service.py       # Lazy Sentence Transformers (all-MiniLM-L6-v2)
-│           ├── openai_service.py          # OpenAI Responses API integration & safe error mapping
-│           ├── pdf_service.py             # In-memory PyMuPDF text extraction
-│           ├── rag_service.py             # RAG orchestration, citation mapping & guardrails
-│           └── vector_store.py            # FAISS IndexFlatIP cosine similarity search
+│           ├── chunking_service.py        # Overlapping text chunker with page metadata
+│           ├── comparison_service.py      # Research paper and document comparison service
+│           ├── document_registry.py       # In-memory document and FAISS index registry
+│           ├── embedding_service.py       # Cached Sentence Transformers embedding service
+│           ├── mock_llm_service.py        # Deterministic offline answer synthesizer
+│           ├── openai_service.py          # OpenAI Responses API integration
+│           ├── pdf_service.py             # PyMuPDF text extraction pipeline
+│           ├── rag_service.py             # RAG synthesis and citation enforcement
+│           ├── summary_service.py         # Structured executive summarization service
+│           └── vector_store.py            # FAISS IndexFlatIP search engine
 └── frontend/
     ├── .env.example
     ├── index.html
@@ -64,31 +85,35 @@ documind/
     ├── vite.config.js
     └── src/
         ├── main.jsx
-        ├── App.jsx                        # Main dashboard & Phase 4 RAG workspace
-        ├── index.css                      # Design system tokens and glassmorphism styling
-        ├── App.css                        # Styling for upload, viewer, search bar, RAG Q&A card
+        ├── App.jsx                        # Multi-page shell coordinator with hash routing
+        ├── index.css                      # Design system tokens and foundational dark theme
+        ├── App.css                        # Shell layout, sidebar, topbar, and workspace styles
         ├── components/
-        │   ├── Header.jsx                 # Navigation header with live status badges
+        │   ├── Sidebar.jsx                # Persistent navigation sidebar with responsive drawer
+        │   ├── TopBar.jsx                 # Header bar with breadcrumbs, active doc, and health status
         │   ├── DocumentUpload.jsx         # Drag-and-drop PDF upload component
-        │   ├── DocumentViewer.jsx         # Extracted text viewer + semantic search + Ask DocuMind
-        │   └── HealthCard.jsx             # Interactive API connectivity tester
+        │   ├── DocumentViewer.jsx         # Document reader, semantic search, Q&A, and summary viewer
+        │   ├── CompareDocuments.jsx       # Side-by-side comparative analysis view
+        │   ├── Header.jsx                 # Legacy standalone header component
+        │   └── HealthCard.jsx             # Interactive backend connectivity and latency tester
         └── services/
-            └── api.js                     # API client for health, upload, indexing, search, ask
+            └── api.js                     # Unified API client for all backend endpoints
 ```
 
 ---
 
-## ⚙️ Environment Configuration
+## Environment Configuration
 
-Backend configuration is loaded strictly from environment variables or a local `.env` file in `backend/`:
+Configuration is loaded from environment variables or a local `.env` file in `backend/`:
 
-1. Copy `.env.example` to `.env`:
+1. Copy the example configuration file:
    ```bash
    cp backend/.env.example backend/.env
    ```
-2. Configure your OpenAI credentials inside `backend/.env`:
+
+2. Review configuration parameters in `backend/.env`:
    ```env
-   # DocuMind Backend Environment Configuration
+   # Core Application Settings
    APP_NAME=DocuMind API
    ENVIRONMENT=development
    HOST=127.0.0.1
@@ -97,35 +122,41 @@ Backend configuration is loaded strictly from environment variables or a local `
    # CORS Allowed Origins
    CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
-   # OpenAI API Configuration (Server-side only)
+   # LLM Provider Selection ('mock' or 'openai')
+   LLM_PROVIDER=mock
+
+   # OpenAI API Configuration (Required only when LLM_PROVIDER=openai)
    OPENAI_API_KEY=your-actual-openai-api-key
    OPENAI_MODEL=gpt-4o-mini
    OPENAI_TIMEOUT_SECONDS=30.0
    ```
 
-> **Security Guarantee**:
-> - `OPENAI_API_KEY` is loaded exclusively on the backend server and is never sent to the browser.
-> - `backend/.env` is ignored by `.gitignore` and must never be committed to source control.
-> - Credentials are never logged to console or exposed in error messages.
+### Security Considerations
+- `OPENAI_API_KEY` is loaded strictly on the backend server and is never transmitted to client browsers.
+- Local `.env` files are excluded by `.gitignore` and must never be committed to source control.
+- Credentials and internal stack traces are sanitized from all client-facing error responses.
 
 ---
 
-## 🚀 Setup and Run Instructions
+## Installation and Execution
 
-### 1. Backend Setup
+### 1. Backend Service
 
-Open a terminal and navigate to the backend directory:
+Prerequisites: Python 3.10 or higher.
+
+Navigate to the `backend` directory, initialize a virtual environment, and install dependencies:
 
 ```bash
 cd backend
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-#### Run Automated Tests (35 Tests, Mocked OpenAI Client)
+#### Run Backend Test Suite
+The test suite consists of 94 automated unit, integration, and regression tests operating without external network dependencies:
+
 ```bash
-python -m unittest discover -s tests
-# or using pytest:
 pytest tests/
 ```
 
@@ -134,93 +165,63 @@ pytest tests/
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The backend server runs at `http://127.0.0.1:8000`.
-- Swagger Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Health Check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+The backend server is accessible at `http://127.0.0.1:8000`:
+- Interactive Swagger Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Service Health Endpoint: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
 ---
 
-### 2. Frontend Setup
+### 2. Frontend Application
 
-In a separate terminal:
+Prerequisites: Node.js 18 or higher.
+
+Navigate to the `frontend` directory, install dependencies, and launch the development server:
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
 
----
+#### Production Build
+To create an optimized production build:
 
-## 🧠 Phase 4 RAG Architecture & Citations
-
-### `POST /api/v1/documents/{document_id}/ask`
-Answers natural language questions grounded strictly in retrieved document passages.
-
-#### Request Payload
-```json
-{
-  "question": "What is the primary thesis evaluated in this research?",
-  "top_k": 4
-}
+```bash
+npm run build
 ```
-
-#### Grounding & Citation Architecture
-1. **Semantic Context Retrieval**: Queries FAISS to retrieve the top `k` most relevant passages.
-2. **Untrusted Input Guardrails**: System instructions explicitly treat document excerpts as untrusted passive data, preventing prompt-injection overrides embedded inside user PDFs.
-3. **Strict Backend Citation Mapping**: Citations (`[1]`, `[2]`, etc.) are mapped to actual retrieved chunks in backend code, ensuring page numbers and chunk IDs can never be hallucinated by the model.
-4. **Insufficient Evidence Acknowledgment**: When evidence is missing or ambiguous, the model states that evidence is insufficient, and the backend sets `has_sufficient_evidence = false`.
-
-#### Response Payload (`200 OK`)
-```json
-{
-  "document_id": "8f2b7a90-...",
-  "question": "What is the primary thesis evaluated in this research?",
-  "answer": "The authors propose a dual-encoder retrieval model [1] that reduces query latency by 40% [2].",
-  "model_used": "gpt-4o-mini",
-  "has_sufficient_evidence": true,
-  "sources": [
-    {
-      "citation_index": 1,
-      "chunk_id": "8f2b7a90-..._p2_c1",
-      "page": 2,
-      "text": "We evaluate a dual-encoder architecture for dense semantic retrieval...",
-      "score": 0.9124,
-      "char_count": 340,
-      "word_count": 52
-    },
-    {
-      "citation_index": 2,
-      "chunk_id": "8f2b7a90-..._p5_c4",
-      "page": 5,
-      "text": "Latency benchmarks demonstrate a 40% reduction in query response time...",
-      "score": 0.8652,
-      "char_count": 280,
-      "word_count": 41
-    }
-  ]
-}
-```
-
-### 5. Document Summarization
-- **POST** `/api/v1/documents/{document_id}/summarize`
-- Generates structured abstractive summaries with safe context budgeting (<12,000 chars) to prevent oversized requests.
-- Returns `overview`, `objectives`, `key_points`, `findings` (with source page references), and `conclusion`.
-- In Mock Mode (`LLM_PROVIDER=mock`), deterministically analyzes real page text with zero OpenAI calls.
-
-### 6. Research Paper & Document Comparison
-- **GET** `/api/v1/documents` — Lists all documents active in the current session.
-- **POST** `/api/v1/documents/compare`
-  - Body: `{"document_id_a": "<uuid>", "document_id_b": "<uuid>"}`
-  - Analyzes both documents side-by-side: compares objectives, methodologies, findings, limitations, similarities, differences, and missing evidence gaps.
 
 ---
 
-## 🗺 Modular Roadmap
+## API Endpoints Reference
 
-- [x] **Phase 1: Project Scaffold** — React (Vite) + FastAPI skeleton, CORS, health endpoints.
-- [x] **Phase 2: PDF Upload & Text Extraction** — PyMuPDF in-memory parsing, drag-and-drop UI, page-by-page reader, OCR error detection.
-- [x] **Phase 3: Semantic Search & FAISS** — Chunking with overlap, Sentence Transformers (`all-MiniLM-L6-v2`), FAISS `IndexFlatIP`, ranked passage retrieval UI.
-- [x] **Phase 4: RAG Question Answering** — OpenAI Responses API, grounded evidence synthesis, backend citation mapping, interactive Q&A interface.
-- [x] **Phase 5: Document Intelligence** — Structured document summarization, research paper comparison, safe token budgeting, full UI integration, and 63 passing tests.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Service root and metadata information |
+| `GET` | `/health` | Service health status, environment, and active LLM provider |
+| `POST` | `/api/v1/documents/upload` | Upload PDF and extract text with page-level provenance |
+| `GET` | `/api/v1/documents` | List all active documents registered in memory |
+| `GET` | `/api/v1/documents/{id}` | Retrieve document status, page count, and indexing state |
+| `POST` | `/api/v1/documents/{id}/index` | Chunk document and construct in-memory FAISS index |
+| `POST` | `/api/v1/documents/{id}/search` | Semantic vector search across document chunks |
+| `POST` | `/api/v1/documents/{id}/ask` | Grounded RAG question answering with verified citations |
+| `POST` | `/api/v1/documents/{id}/summarize` | Generate structured executive summary with page references |
+| `POST` | `/api/v1/documents/compare` | Side-by-side comparative analysis of two documents |
+| `DELETE` | `/api/v1/documents/{id}` | Delete document, release vector index, and clear cache |
+
+---
+
+## Architecture and Design Principles
+
+1. **Grounded Provenance**: Statements generated by the platform include verified document and page references derived from physical document chunks.
+2. **Context Budgeting**: Context windows are monitored and budgeted (<12,000 characters for summaries and comparisons) to eliminate oversized payload errors.
+3. **Defensive Processing**: PDF line wraps are normalized into coherent sentences, preserving headers and numerical scopes without generating fragments or filler text.
+4. **Volatile Session Isolation**: Documents and vector indices reside in an in-memory session registry isolated by unique identifiers.
+5. **Zero-Cost Verification**: Full system validation is executable offline in Mock Mode, ensuring continuous testing without recurring API fees.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
